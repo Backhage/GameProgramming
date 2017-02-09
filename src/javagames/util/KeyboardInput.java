@@ -18,7 +18,7 @@ public class KeyboardInput implements KeyListener {
 	}
 	
 	public boolean keyDownOnce(int keyCode) {
-		return polled[keyCode] == 0;
+		return polled[keyCode] == 1;
 	}
 	
 	public synchronized void poll() {

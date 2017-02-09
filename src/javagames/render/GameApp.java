@@ -1,18 +1,23 @@
 package javagames.render;
 
+import java.awt.Canvas;
 import java.awt.Color;
-import java.awt.DisplayMode;
+import java.awt.Cursor;
 import java.awt.Graphics;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
-import java.awt.event.KeyAdapter;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 import javagames.util.FrameRate;
+import javagames.util.KeyboardInput;
+import javagames.util.RelativeMouseInput;
 
 public class GameApp extends JFrame implements Runnable {
 
@@ -21,47 +26,44 @@ public class GameApp extends JFrame implements Runnable {
 	private BufferStrategy bufferStrategy;
 	private volatile boolean running;
 	private Thread gameThread;
-	private GraphicsDevice graphicsDevice;
-	private DisplayMode currentDisplayMode;
+	private Canvas canvas;
+	private RelativeMouseInput mouse;
+	private KeyboardInput keyboard;
+	private Point point = new Point(0,0);
+	private boolean disableCursor = false;
 	
 	public GameApp() {
 		frameRate = new FrameRate();
 	}
 	
 	protected void createAndShowGUI() {
+		canvas = new Canvas();
+		canvas.setSize(640, 480);
+		canvas.setBackground(Color.BLACK);
+		canvas.setIgnoreRepaint(true);
+		getContentPane().add(canvas);
+		
+		setTitle("Game Application");
 		setIgnoreRepaint(true);
-		setUndecorated(true);
-		setBackground(Color.BLACK);
+		pack();
 		
-		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-		graphicsDevice = ge.getDefaultScreenDevice();
-		currentDisplayMode = graphicsDevice.getDisplayMode();
+		// Add key listeners
+		keyboard = new KeyboardInput();
+		canvas.addKeyListener(keyboard);
 		
-		if (!graphicsDevice.isFullScreenSupported()) {
-			System.err.println("ERROR: Fullscreen not supported.");
-			System.exit(ERROR);
-		}
+		// Add mouse listeners
+		mouse = new RelativeMouseInput(canvas);
+		canvas.addMouseListener(mouse);
+		canvas.addMouseMotionListener(mouse);
+		canvas.addMouseWheelListener(mouse);
 		
-		graphicsDevice.setFullScreenWindow(this);
-		graphicsDevice.setDisplayMode(getDisplayMode());
-		
-		createBufferStrategy(2);
-		bufferStrategy = getBufferStrategy();
-		
-		addKeyListener(new KeyAdapter() {
-			public void keyPressed(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-					shutDown();
-				}
-			}
-		});
+		setVisible(true);
+		canvas.createBufferStrategy(2);
+		bufferStrategy = canvas.getBufferStrategy();
+		canvas.requestFocus();
 		
 		gameThread = new Thread(this);
 		gameThread.start();
-	}
-	
-	private DisplayMode getDisplayMode() {
-		return new DisplayMode(1920, 1080, 32, DisplayMode.REFRESH_RATE_UNKNOWN);
 	}
 	
 	@Override
@@ -74,6 +76,12 @@ public class GameApp extends JFrame implements Runnable {
 	}
 	
 	private void gameLoop() {
+		processInput();
+		renderFrame();
+		sleep(10L);
+	}
+	
+	private void renderFrame() {
 		do {
 			do {
 				Graphics g = null;
@@ -91,21 +99,82 @@ public class GameApp extends JFrame implements Runnable {
 		} while (bufferStrategy.contentsLost());
 	}
 	
+	private void sleep(long sleep) {
+		try {
+			Thread.sleep(sleep);
+		} catch (InterruptedException e) {
+			// Do nothing.
+		}
+	}
+	
+	private void processInput() {
+		keyboard.poll();
+		mouse.poll();
+		
+		Point p = mouse.getPosition();
+		if (mouse.isRelative()) {
+			point.x += p.x;
+			point.y += p.y;
+		} else {
+			point.x = p.x;
+			point.y = p.y;
+		}
+		
+		// Wrap rectangle around the screen
+		if (point.x + 25 < 0) {
+			point.x = canvas.getWidth() - 1;
+		} else if (point.x > canvas.getWidth() - 1) {
+			point.x = -25;
+		}
+		
+		if (point.y + 25 < 0) {
+			point.y = canvas.getHeight() - 1;
+		} else if (point.y > canvas.getHeight() - 1) {
+			point.y = -25;
+		}
+		
+		// Toggle relative
+		if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
+			mouse.setRelative(!mouse.isRelative());
+		}
+		
+		// Toggle cursor
+		if (keyboard.keyDownOnce(KeyEvent.VK_C)) {
+			disableCursor = !disableCursor;
+			if (disableCursor) {
+				disableCursor();
+			} else {
+				setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+			}
+		}
+	}
+	
 	private void render(Graphics g) {
 		frameRate.calculate();
 		g.setColor(Color.GREEN);
-		g.drawString(frameRate.getFrameRate(), 30, 30);
-		g.drawString("Press ESC to exit...", 30, 60);
+		g.drawString(mouse.getPosition().toString(), 20, 20);
+		g.drawString("Relative: " + mouse.isRelative(), 20, 35);
+		g.drawString("Press space to switch mouse modes", 20, 50);
+		g.drawString("Press C to toggle cursor", 20, 65);
+		g.drawString(frameRate.getFrameRate(), 20, 80);
+
+		g.setColor(Color.WHITE);
+		g.drawRect(point.x, point.y, 25, 25);
 	}
 	
-	protected void shutDown() {
+	private void disableCursor() {
+		Toolkit tk = Toolkit.getDefaultToolkit();
+		Image image = tk.createImage("");
+		Point p = new Point(0,0);
+		String name = "Can be anything";
+		Cursor cursor = tk.createCustomCursor(image, p, name);
+		setCursor(cursor);
+	}
+	
+	protected void onWindowClosing() {
 		try {
 			running = false;
 			gameThread.join();
-			System.out.println("Game loop stopped.");
-			graphicsDevice.setDisplayMode(currentDisplayMode);
-			graphicsDevice.setFullScreenWindow(null);
-			System.out.println("Display restored.");
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
@@ -114,6 +183,12 @@ public class GameApp extends JFrame implements Runnable {
 	
 	public static void main(String[] args) {
 		final GameApp app = new GameApp();
+		app.addWindowListener(new WindowAdapter() {
+			@Override
+			public void windowClosing(WindowEvent e) {
+				app.onWindowClosing();
+			}
+		});
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
 				app.createAndShowGUI();
