@@ -2,11 +2,8 @@ package javagames.render;
 
 import java.awt.Canvas;
 import java.awt.Color;
-import java.awt.Cursor;
+import java.awt.Font;
 import java.awt.Graphics;
-import java.awt.Image;
-import java.awt.Point;
-import java.awt.Toolkit;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -18,27 +15,41 @@ import javax.swing.SwingUtilities;
 import javagames.util.FrameRate;
 import javagames.util.KeyboardInput;
 import javagames.util.RelativeMouseInput;
+import javagames.util.Vector2f;
 
 public class GameApp extends JFrame implements Runnable {
 
 	private static final long serialVersionUID = -5612855817410359454L;
+	
+	private static final int SCREEN_W = 640;
+	private static final int SCREEN_H = 480;
+	
 	private FrameRate frameRate;
 	private BufferStrategy bufferStrategy;
 	private volatile boolean running;
 	private Thread gameThread;
-	private Canvas canvas;
 	private RelativeMouseInput mouse;
 	private KeyboardInput keyboard;
-	private Point point = new Point(0,0);
-	private boolean disableCursor = false;
+	private Vector2f[] polygon;
+	private Vector2f[] world;
+	private float tx, ty;
+	private float vx, vy;
+	private float rot, rotStep;
+	private float scale, scaleStep;
+	private float sx, sxStep;
+	private float sy, syStep;
+	private boolean doTranslate;
+	private boolean doScale;
+	private boolean doRotate;
+	private boolean doXShear;
+	private boolean doYShear;
 	
 	public GameApp() {
-		frameRate = new FrameRate();
 	}
 	
 	protected void createAndShowGUI() {
-		canvas = new Canvas();
-		canvas.setSize(640, 480);
+		Canvas canvas = new Canvas();
+		canvas.setSize(SCREEN_W, SCREEN_H);
 		canvas.setBackground(Color.BLACK);
 		canvas.setIgnoreRepaint(true);
 		getContentPane().add(canvas);
@@ -69,7 +80,7 @@ public class GameApp extends JFrame implements Runnable {
 	@Override
 	public void run() {
 		running = true;
-		frameRate.initialize();
+		initialize();
 		while (running) {
 			gameLoop();
 		}
@@ -77,6 +88,7 @@ public class GameApp extends JFrame implements Runnable {
 	
 	private void gameLoop() {
 		processInput();
+		processObjects();
 		renderFrame();
 		sleep(10L);
 	}
@@ -107,68 +119,135 @@ public class GameApp extends JFrame implements Runnable {
 		}
 	}
 	
+	private void initialize() {
+		frameRate = new FrameRate();
+		frameRate.initialize();
+		polygon = new Vector2f[] {
+				new Vector2f(10, 0),
+				new Vector2f(-10, 8),
+				new Vector2f(0, 0),
+				new Vector2f(-10, -8)
+		};
+		world = new Vector2f[polygon.length];
+		reset();
+	}
+	
+	private void reset() {
+		tx = SCREEN_W / 2;
+		ty = SCREEN_H / 2;
+		vx = vy = 2;
+		rot = 0.0f;
+		rotStep = (float)Math.toRadians(1.0);
+		scale = 1.0f;
+		scaleStep = 0.1f;
+		sx = sy = 0.0f;
+		sxStep = syStep = 0.01f;
+		doRotate = doScale = doTranslate = false;
+		doXShear = doYShear = false;
+	}
+	
 	private void processInput() {
 		keyboard.poll();
 		mouse.poll();
 		
-		Point p = mouse.getPosition();
-		if (mouse.isRelative()) {
-			point.x += p.x;
-			point.y += p.y;
-		} else {
-			point.x = p.x;
-			point.y = p.y;
+		if (keyboard.keyDownOnce(KeyEvent.VK_R)) {
+			doRotate = !doRotate;
 		}
 		
-		// Wrap rectangle around the screen
-		if (point.x + 25 < 0) {
-			point.x = canvas.getWidth() - 1;
-		} else if (point.x > canvas.getWidth() - 1) {
-			point.x = -25;
+		if (keyboard.keyDownOnce(KeyEvent.VK_S)) {
+			doScale = !doScale;
 		}
 		
-		if (point.y + 25 < 0) {
-			point.y = canvas.getHeight() - 1;
-		} else if (point.y > canvas.getHeight() - 1) {
-			point.y = -25;
+		if (keyboard.keyDownOnce(KeyEvent.VK_T)) {
+			doTranslate = !doTranslate;
 		}
 		
-		// Toggle relative
+		if (keyboard.keyDownOnce(KeyEvent.VK_X)) {
+			doXShear = !doXShear;
+		}
+		
+		if (keyboard.keyDownOnce(KeyEvent.VK_Y)) {
+			doYShear = !doYShear;
+		}
+		
 		if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
-			mouse.setRelative(!mouse.isRelative());
+			reset();
+		}
+	}
+	
+	private void processObjects() {
+		for (int i = 0; i < polygon.length; i++) {
+			world[i] = new Vector2f(polygon[i]);
 		}
 		
-		// Toggle cursor
-		if (keyboard.keyDownOnce(KeyEvent.VK_C)) {
-			disableCursor = !disableCursor;
-			if (disableCursor) {
-				disableCursor();
-			} else {
-				setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+		if (doScale) {
+			scale += scaleStep;
+			if (scale < 1.0 || scale > 5.0) {
+				scaleStep = -scaleStep;
 			}
+		}
+		
+		if (doRotate) {
+			rot += rotStep;
+			if (rot < 0.0f || rot > 2*Math.PI) {
+				rotStep = -rotStep;
+			}
+		}
+		
+		if (doTranslate) {
+			tx += vx;
+			if (tx < 0 || tx > SCREEN_W) {
+				vx = -vx;
+			}
+			
+			ty += vy;
+			if (ty < 0 || ty > SCREEN_H) {
+				vy = -vy;
+			}
+		}
+		
+		if (doXShear) {
+			sx += sxStep;
+			if (Math.abs(sx) > 2.0) {
+				sxStep = -sxStep;
+			}
+		}
+		
+		if (doYShear) {
+			sy += syStep;
+			if (Math.abs(sy) > 2.0) {
+				syStep = -syStep;
+			}
+		}
+		
+		for (int i = 0; i < world.length; i++) {
+			world[i].shear(sx, sy);
+			world[i].scale(scale, scale);
+			world[i].rotate(rot);
+			world[i].translate(tx, ty);
 		}
 	}
 	
 	private void render(Graphics g) {
 		frameRate.calculate();
+		
+		g.setFont(new Font("Courier New", Font.PLAIN, 12));
 		g.setColor(Color.GREEN);
-		g.drawString(mouse.getPosition().toString(), 20, 20);
-		g.drawString("Relative: " + mouse.isRelative(), 20, 35);
-		g.drawString("Press space to switch mouse modes", 20, 50);
-		g.drawString("Press C to toggle cursor", 20, 65);
-		g.drawString(frameRate.getFrameRate(), 20, 80);
-
-		g.setColor(Color.WHITE);
-		g.drawRect(point.x, point.y, 25, 25);
-	}
-	
-	private void disableCursor() {
-		Toolkit tk = Toolkit.getDefaultToolkit();
-		Image image = tk.createImage("");
-		Point p = new Point(0,0);
-		String name = "Can be anything";
-		Cursor cursor = tk.createCustomCursor(image, p, name);
-		setCursor(cursor);
+		g.drawString(frameRate.getFrameRate(), 20, 20);
+		g.drawString("Translate (T): " + doTranslate, 20, 35);
+		g.drawString("Rotate(R)    : " + doRotate, 20, 50);
+		g.drawString("Scale(S)     : " + doScale, 20, 65);
+		g.drawString("X-Shear(X)   : " + doXShear, 20, 80);
+		g.drawString("Y-Shear(Y)   : " + doYShear, 20, 95);
+		g.drawString("Press [SPACE] to reset", 20, 110);
+		
+		Vector2f S = world[world.length - 1];
+		Vector2f P = null;
+		for (int i = 0; i < world.length; i++) {
+			P = world[i];
+			g.drawLine((int)S.x, (int)S.y, (int)P.x, (int)P.y);
+			S = P;
+		}
 	}
 	
 	protected void onWindowClosing() {
