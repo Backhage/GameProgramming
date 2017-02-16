@@ -106,4 +106,26 @@ public class Matrix3x3f {
 			{                  0.0f,                 0.0f, 1.0f }
 		});
 	}
+	
+	public Vector2f mul(Vector2f vec) {
+		return new Vector2f(
+				vec.x * m[0][0] + vec.y * m[1][0] + vec.w * m[2][0],
+				vec.x * m[0][1] + vec.y * m[1][1] + vec.w * m[2][1],
+				vec.x * m[0][2] + vec.y * m[1][2] + vec.w * m[2][2]);
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder buf = new StringBuilder();
+		for (int i = 0; i < 3; i++) {
+			buf.append("[");
+			buf.append(m[i][0]);
+			buf.append(",\t");
+			buf.append(m[i][1]);
+			buf.append(",\t");
+			buf.append(m[i][2]);
+			buf.append("]\n");
+		}
+		return buf.toString();
+	}
 }
