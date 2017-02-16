@@ -23,7 +23,7 @@ public class GameApp extends JFrame implements Runnable {
 
 	private static final long serialVersionUID = -5612855817410359454L;
 	
-	private static final int SCREEN_W = 640;
+	private static final int SCREEN_W = 480;
 	private static final int SCREEN_H = 480;
 	
 	private FrameRate frameRate;
@@ -32,21 +32,19 @@ public class GameApp extends JFrame implements Runnable {
 	private Thread gameThread;
 	private RelativeMouseInput mouse;
 	private KeyboardInput keyboard;
+	private Canvas canvas;
 	
-	private float earthRot, earthDelta;
-	private float moonRot, moonDelta;
-	
-	private boolean showStars;
-	private int[] stars;
-	private Random rand = new Random();
+	private float angle;
+	private float step;
+	private long sleep;
 	
 	public GameApp() {
 	}
 	
 	protected void createAndShowGUI() {
-		Canvas canvas = new Canvas();
+		canvas = new Canvas();
 		canvas.setSize(SCREEN_W, SCREEN_H);
-		canvas.setBackground(Color.BLACK);
+		canvas.setBackground(Color.WHITE);
 		canvas.setIgnoreRepaint(true);
 		getContentPane().add(canvas);
 		
@@ -77,15 +75,22 @@ public class GameApp extends JFrame implements Runnable {
 	public void run() {
 		running = true;
 		initialize();
+		long currentTime = System.nanoTime();
+		long lastTime = currentTime;
+		double nsPerFrame;
 		while (running) {
-			gameLoop();
+			currentTime = System.nanoTime();
+			nsPerFrame = currentTime - lastTime;
+			gameLoop(nsPerFrame / 1.0E9);
+			lastTime = currentTime;
 		}
 	}
 	
-	private void gameLoop() {
-		processInput();
+	private void gameLoop(double timeDelta) {
+		processInput(timeDelta);
+		updateObjects(timeDelta);
 		renderFrame();
-		sleep(10L);
+		sleep(sleep);
 	}
 	
 	private void renderFrame() {
@@ -118,73 +123,66 @@ public class GameApp extends JFrame implements Runnable {
 		frameRate = new FrameRate();
 		frameRate.initialize();
 		
-		earthDelta = (float)Math.toRadians(0.5);
-		moonDelta = (float)Math.toRadians(2.5);
-		
-		showStars = true;
-		stars = new int[1000];
-		
-		for (int i = 0; i < stars.length - 1; i += 2) {
-			stars[i] = rand.nextInt(SCREEN_W);
-			stars[i+1] = rand.nextInt(SCREEN_H);
-		}
+		angle = 0.0f;
+		step = (float)Math.PI / 2.0f;
 	}
 	
-	private void processInput() {
+	private void processInput(double timeDelta) {
 		keyboard.poll();
 		mouse.poll();
 		
-		if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
-			showStars = !showStars;
+		if (keyboard.keyDownOnce(KeyEvent.VK_UP)) {
+			sleep += 10;
+		}
+		
+		if (keyboard.keyDownOnce(KeyEvent.VK_DOWN)) {
+			sleep -= 10;
+		}
+		
+		if (sleep > 1000) {
+			sleep = 1000;
+		}
+		
+		if (sleep < 0) {
+			sleep = 0;
 		}
 	}
+	
+	private void updateObjects(double timeDelta) {
+		angle += step * timeDelta;
+		if (angle > 2 * Math.PI) {
+			angle -= 2 * Math.PI;
+		}
+	}
+
 	private void render(Graphics g) {
 		frameRate.calculate();
 		
 		g.setFont(new Font("Courier New", Font.PLAIN, 12));
-		g.setColor(Color.GREEN);
+		g.setColor(Color.BLACK);
 		g.drawString(frameRate.getFrameRate(), 20, 20);
-		g.drawString("Press [SPACE] to toggle stars", 20, 35);
+		g.drawString("Up arrow increases sleep time", 20, 35);
+		g.drawString("Down arrow decreases sleep time", 20, 50);
+		g.drawString("Sleep time (ms): " + sleep, 20, 65);
 		
-		if (showStars) {
-			g.setColor(Color.WHITE);
-			for (int i = 0; i < stars.length - 1; i++) {
-				g.fillRect(stars[i], stars[i+1], 1, 1);
-			}
-		}
+		int x = canvas.getWidth() / 4;
+		int y = canvas.getHeight() / 4;
+		int w = canvas.getWidth() / 2;
+		int h = canvas.getHeight() / 2;
+		g.drawOval(x, y, w, h);
 		
-		// Draw the sun
-		Matrix3x3f sunMatrix = Matrix3x3f.identity();
-		sunMatrix = sunMatrix.mul(Matrix3x3f.translate(SCREEN_W / 2, SCREEN_H / 2));
+		float radiusWidth = w / 2;
+		float radiusHeight = h / 2;
+		int rx = (int)(radiusWidth * Math.cos(angle));
+		int ry = (int)(radiusHeight * Math.sin(angle));
 		
-		Vector2f sun = sunMatrix.mul(new Vector2f());
-		g.setColor(Color.YELLOW);
-		g.fillOval((int)sun.x - 50, (int)sun.y - 50, 100, 100);
+		int cx = (int)(rx + w);
+		int cy = (int)(ry + h);
 		
-		// Draw earth's orbit
-		g.setColor(Color.WHITE);
-		g.drawOval((int)sun.x - SCREEN_W / 4, (int)sun.y - SCREEN_W / 4, SCREEN_W / 2, SCREEN_W / 2);
-		
-		// Draw the earth
-		Matrix3x3f earthMatrix = Matrix3x3f.translate(SCREEN_W / 4, 0);
-		earthMatrix = earthMatrix.mul(Matrix3x3f.rotate(earthRot));
-		earthMatrix = earthMatrix.mul(sunMatrix);
-		
-		earthRot += earthDelta;
-		
-		Vector2f earth = earthMatrix.mul(new Vector2f());
-		g.setColor(Color.BLUE);
-		g.fillOval((int)earth.x - 10, (int)earth.y - 10, 20, 20);
-		
-		// Draw the moon
-		Matrix3x3f moonMatrix = Matrix3x3f.translate(30, 0);
-		moonMatrix = moonMatrix.mul(Matrix3x3f.rotate(moonRot));
-		moonMatrix = moonMatrix.mul(earthMatrix);
-		moonRot += moonDelta;
-		
-		Vector2f moon = moonMatrix.mul(new Vector2f());
-		g.setColor(Color.LIGHT_GRAY);
-		g.fillOval((int)moon.x - 5, (int)moon.y - 5, 10, 10);
+		// Draw clock hand
+		g.drawLine(w, h, cx, cy);
+		// and the dot at the ond of the hand
+		g.drawRect(cx - 2, cy - 2, 4, 4);
 	}
 	
 	protected void onWindowClosing() {
