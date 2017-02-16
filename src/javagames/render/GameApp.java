@@ -8,16 +8,13 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
-import java.util.Random;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 import javagames.util.FrameRate;
 import javagames.util.KeyboardInput;
-import javagames.util.Matrix3x3f;
 import javagames.util.RelativeMouseInput;
-import javagames.util.Vector2f;
 
 public class GameApp extends JFrame implements Runnable {
 
@@ -181,7 +178,7 @@ public class GameApp extends JFrame implements Runnable {
 		
 		// Draw clock hand
 		g.drawLine(w, h, cx, cy);
-		// and the dot at the ond of the hand
+		// and the dot at the and of the hand
 		g.drawRect(cx - 2, cy - 2, 4, 4);
 	}
 	
