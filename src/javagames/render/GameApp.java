@@ -8,12 +8,14 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferStrategy;
+import java.util.Random;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
 import javagames.util.FrameRate;
 import javagames.util.KeyboardInput;
+import javagames.util.Matrix3x3f;
 import javagames.util.RelativeMouseInput;
 import javagames.util.Vector2f;
 
@@ -30,19 +32,13 @@ public class GameApp extends JFrame implements Runnable {
 	private Thread gameThread;
 	private RelativeMouseInput mouse;
 	private KeyboardInput keyboard;
-	private Vector2f[] polygon;
-	private Vector2f[] world;
-	private float tx, ty;
-	private float vx, vy;
-	private float rot, rotStep;
-	private float scale, scaleStep;
-	private float sx, sxStep;
-	private float sy, syStep;
-	private boolean doTranslate;
-	private boolean doScale;
-	private boolean doRotate;
-	private boolean doXShear;
-	private boolean doYShear;
+	
+	private float earthRot, earthDelta;
+	private float moonRot, moonDelta;
+	
+	private boolean showStars;
+	private int[] stars;
+	private Random rand = new Random();
 	
 	public GameApp() {
 	}
@@ -88,7 +84,6 @@ public class GameApp extends JFrame implements Runnable {
 	
 	private void gameLoop() {
 		processInput();
-		processObjects();
 		renderFrame();
 		sleep(10L);
 	}
@@ -122,132 +117,74 @@ public class GameApp extends JFrame implements Runnable {
 	private void initialize() {
 		frameRate = new FrameRate();
 		frameRate.initialize();
-		polygon = new Vector2f[] {
-				new Vector2f(10, 0),
-				new Vector2f(-10, 8),
-				new Vector2f(0, 0),
-				new Vector2f(-10, -8)
-		};
-		world = new Vector2f[polygon.length];
-		reset();
-	}
-	
-	private void reset() {
-		tx = SCREEN_W / 2;
-		ty = SCREEN_H / 2;
-		vx = vy = 2;
-		rot = 0.0f;
-		rotStep = (float)Math.toRadians(1.0);
-		scale = 1.0f;
-		scaleStep = 0.1f;
-		sx = sy = 0.0f;
-		sxStep = syStep = 0.01f;
-		doRotate = doScale = doTranslate = false;
-		doXShear = doYShear = false;
+		
+		earthDelta = (float)Math.toRadians(0.5);
+		moonDelta = (float)Math.toRadians(2.5);
+		
+		showStars = true;
+		stars = new int[1000];
+		
+		for (int i = 0; i < stars.length - 1; i += 2) {
+			stars[i] = rand.nextInt(SCREEN_W);
+			stars[i+1] = rand.nextInt(SCREEN_H);
+		}
 	}
 	
 	private void processInput() {
 		keyboard.poll();
 		mouse.poll();
 		
-		if (keyboard.keyDownOnce(KeyEvent.VK_R)) {
-			doRotate = !doRotate;
-		}
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_S)) {
-			doScale = !doScale;
-		}
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_T)) {
-			doTranslate = !doTranslate;
-		}
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_X)) {
-			doXShear = !doXShear;
-		}
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_Y)) {
-			doYShear = !doYShear;
-		}
-		
 		if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
-			reset();
+			showStars = !showStars;
 		}
 	}
-	
-	private void processObjects() {
-		for (int i = 0; i < polygon.length; i++) {
-			world[i] = new Vector2f(polygon[i]);
-		}
-		
-		if (doScale) {
-			scale += scaleStep;
-			if (scale < 1.0 || scale > 5.0) {
-				scaleStep = -scaleStep;
-			}
-		}
-		
-		if (doRotate) {
-			rot += rotStep;
-			if (rot < 0.0f || rot > 2*Math.PI) {
-				rotStep = -rotStep;
-			}
-		}
-		
-		if (doTranslate) {
-			tx += vx;
-			if (tx < 0 || tx > SCREEN_W) {
-				vx = -vx;
-			}
-			
-			ty += vy;
-			if (ty < 0 || ty > SCREEN_H) {
-				vy = -vy;
-			}
-		}
-		
-		if (doXShear) {
-			sx += sxStep;
-			if (Math.abs(sx) > 2.0) {
-				sxStep = -sxStep;
-			}
-		}
-		
-		if (doYShear) {
-			sy += syStep;
-			if (Math.abs(sy) > 2.0) {
-				syStep = -syStep;
-			}
-		}
-		
-		for (int i = 0; i < world.length; i++) {
-			world[i].shear(sx, sy);
-			world[i].scale(scale, scale);
-			world[i].rotate(rot);
-			world[i].translate(tx, ty);
-		}
-	}
-	
 	private void render(Graphics g) {
 		frameRate.calculate();
 		
 		g.setFont(new Font("Courier New", Font.PLAIN, 12));
 		g.setColor(Color.GREEN);
 		g.drawString(frameRate.getFrameRate(), 20, 20);
-		g.drawString("Translate (T): " + doTranslate, 20, 35);
-		g.drawString("Rotate(R)    : " + doRotate, 20, 50);
-		g.drawString("Scale(S)     : " + doScale, 20, 65);
-		g.drawString("X-Shear(X)   : " + doXShear, 20, 80);
-		g.drawString("Y-Shear(Y)   : " + doYShear, 20, 95);
-		g.drawString("Press [SPACE] to reset", 20, 110);
+		g.drawString("Press [SPACE] to toggle stars", 20, 35);
 		
-		Vector2f S = world[world.length - 1];
-		Vector2f P = null;
-		for (int i = 0; i < world.length; i++) {
-			P = world[i];
-			g.drawLine((int)S.x, (int)S.y, (int)P.x, (int)P.y);
-			S = P;
+		if (showStars) {
+			g.setColor(Color.WHITE);
+			for (int i = 0; i < stars.length - 1; i++) {
+				g.fillRect(stars[i], stars[i+1], 1, 1);
+			}
 		}
+		
+		// Draw the sun
+		Matrix3x3f sunMatrix = Matrix3x3f.identity();
+		sunMatrix = sunMatrix.mul(Matrix3x3f.translate(SCREEN_W / 2, SCREEN_H / 2));
+		
+		Vector2f sun = sunMatrix.mul(new Vector2f());
+		g.setColor(Color.YELLOW);
+		g.fillOval((int)sun.x - 50, (int)sun.y - 50, 100, 100);
+		
+		// Draw earth's orbit
+		g.setColor(Color.WHITE);
+		g.drawOval((int)sun.x - SCREEN_W / 4, (int)sun.y - SCREEN_W / 4, SCREEN_W / 2, SCREEN_W / 2);
+		
+		// Draw the earth
+		Matrix3x3f earthMatrix = Matrix3x3f.translate(SCREEN_W / 4, 0);
+		earthMatrix = earthMatrix.mul(Matrix3x3f.rotate(earthRot));
+		earthMatrix = earthMatrix.mul(sunMatrix);
+		
+		earthRot += earthDelta;
+		
+		Vector2f earth = earthMatrix.mul(new Vector2f());
+		g.setColor(Color.BLUE);
+		g.fillOval((int)earth.x - 10, (int)earth.y - 10, 20, 20);
+		
+		// Draw the moon
+		Matrix3x3f moonMatrix = Matrix3x3f.translate(30, 0);
+		moonMatrix = moonMatrix.mul(Matrix3x3f.rotate(moonRot));
+		moonMatrix = moonMatrix.mul(earthMatrix);
+		moonRot += moonDelta;
+		
+		Vector2f moon = moonMatrix.mul(new Vector2f());
+		g.setColor(Color.LIGHT_GRAY);
+		g.fillOval((int)moon.x - 5, (int)moon.y - 5, 10, 10);
 	}
 	
 	protected void onWindowClosing() {
