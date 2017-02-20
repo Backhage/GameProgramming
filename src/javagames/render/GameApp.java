@@ -1,12 +1,7 @@
 package javagames.render;
 
-import java.awt.Canvas;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.*;
+import java.awt.event.*;
 import java.awt.image.BufferStrategy;
 
 import javax.swing.JFrame;
@@ -30,22 +25,21 @@ public class GameApp extends JFrame implements Runnable {
 	private Vector2f[] triangle;
 	private Vector2f[] triangleWorld;
 
-    private Vector2f[] rectangle;
-    private Vector2f[] rectangleWorld;
+    private float worldWidth;
+    private float worldHeight;
 
 	private GameApp() {
 	}
 	
 	private void createAndShowGUI() {
 		canvas = new Canvas();
-		canvas.setSize(SCREEN_W, SCREEN_H);
 		canvas.setBackground(Color.WHITE);
 		canvas.setIgnoreRepaint(true);
+		getContentPane().setBackground(Color.LIGHT_GRAY);
+		setLayout(null);
+        setTitle("Game Application");
+		setSize(SCREEN_W, SCREEN_H);
 		getContentPane().add(canvas);
-		
-		setTitle("Game Application");
-		setIgnoreRepaint(true);
-		pack();
 		
 		keyboard = new KeyboardInput();
 		canvas.addKeyListener(keyboard);
@@ -54,7 +48,13 @@ public class GameApp extends JFrame implements Runnable {
 		canvas.addMouseListener(mouse);
 		canvas.addMouseMotionListener(mouse);
 		canvas.addMouseWheelListener(mouse);
-		
+
+		getContentPane().addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                onComponentResized(e);
+            }
+        });
 		setVisible(true);
 		canvas.createBufferStrategy(2);
 		bufferStrategy = canvas.getBufferStrategy();
@@ -63,7 +63,27 @@ public class GameApp extends JFrame implements Runnable {
 		gameThread = new Thread(this);
 		gameThread.start();
 	}
-	
+
+	private void onComponentResized(ComponentEvent e) {
+	    Dimension size = getContentPane().getSize();
+	    int viewWidth = size.width * 3 / 4;
+	    int viewHeight = size.height * 3 / 4;
+	    int viewXPosition = (size.width - viewWidth) / 2;
+	    int viewYPosition = (size.height - viewHeight) / 2;
+
+	    int newWidth = viewWidth;
+	    int newHeight = (int)(viewWidth * worldHeight / worldWidth);
+	    if (newHeight > viewHeight) {
+	        newWidth = (int)(viewHeight * worldWidth / worldHeight);
+	        newHeight = viewHeight;
+        }
+
+        viewXPosition += (viewWidth - newWidth) / 2;
+	    viewYPosition += (viewHeight - newHeight) / 2;
+	    canvas.setLocation(viewXPosition, viewYPosition);
+	    canvas.setSize(newWidth, newHeight);
+    }
+
 	@Override
 	public void run() {
 		running = true;
@@ -84,26 +104,21 @@ public class GameApp extends JFrame implements Runnable {
 		frameRate.initialize();
 
 		triangle = new Vector2f[] {
-				new Vector2f(0.0f, 0.5f),
-				new Vector2f(-0.5f, -0.5f),
-				new Vector2f(0.5f, -0.5f)
+				new Vector2f(0.0f, 2.25f),
+				new Vector2f(-4.0f, -2.25f),
+				new Vector2f(4.0f, -2.25f)
 		};
 		triangleWorld = new Vector2f[triangle.length];
 
-		rectangle = new Vector2f[] {
-				new Vector2f(-1.0f, 1.0f),
-				new Vector2f(1.0f, 1.0f),
-				new Vector2f(1.0f, -1.0f),
-				new Vector2f(-1.0f, -1.0f)
-		};
-		rectangleWorld = new Vector2f[rectangle.length];
+		worldWidth = 16.0f;
+		worldHeight = 9.0f;
 	}
 
 	private void gameLoop(double timeDelta) {
 		processInput(timeDelta);
 		updateObjects(timeDelta);
 		renderFrame();
-		sleep(10L);
+		sleep();
 	}
 	
 	private void renderFrame() {
@@ -124,9 +139,9 @@ public class GameApp extends JFrame implements Runnable {
 		} while (bufferStrategy.contentsLost());
 	}
 	
-	private void sleep(long sleep) {
+	private void sleep() {
 		try {
-			Thread.sleep(sleep);
+			Thread.sleep(10L);
 		} catch (InterruptedException e) {
 			// Do nothing.
 		}
@@ -147,25 +162,19 @@ public class GameApp extends JFrame implements Runnable {
 		g.setColor(Color.BLACK);
 		g.drawString(frameRate.getFrameRate(), 20, 20);
 
-		float worldWidth = 2.0f;
-		float worldHeight = 2.0f;
-		float screenWidth = canvas.getWidth() - 1;
-		float screenHeight = canvas.getHeight() - 1;
-		float scaleHorizontal = screenWidth / worldWidth;
-		float scaleVertical = screenHeight / worldHeight;
+		float scaleHorizontal = (canvas.getWidth() - 1) / worldWidth;
+		float scaleVertical = (canvas.getHeight() - 1) / worldHeight;
+		float translateX = (canvas.getWidth() - 1) / 2.0f;
+		float translateY = (canvas.getHeight() - 1) / 2.0f;
 
-		Matrix3x3f viewPort = Matrix3x3f.scale(scaleHorizontal, -scaleVertical);
-		viewPort = viewPort.mul(Matrix3x3f.translate(screenWidth / 2.0f, screenHeight / 2.0f));
+		Matrix3x3f viewPort = Matrix3x3f.identity();
+		viewPort = viewPort.mul(Matrix3x3f.scale(scaleHorizontal, -scaleVertical));
+		viewPort = viewPort.mul(Matrix3x3f.translate(translateX, translateY));
 
 		for (int i = 0; i < triangle.length; i++) {
 			triangleWorld[i] = viewPort.mul(triangle[i]);
 		}
 		drawPolygon(g, triangleWorld);
-
-		for (int i = 0; i < rectangle.length; i++) {
-			rectangleWorld[i] = viewPort.mul(rectangle[i]);
-		}
-		drawPolygon(g, rectangleWorld);
 	}
 
 	private void drawPolygon(Graphics g, Vector2f[] polygon) {
