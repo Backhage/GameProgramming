@@ -12,33 +12,31 @@ import java.awt.image.BufferStrategy;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
 
-import javagames.util.FrameRate;
-import javagames.util.KeyboardInput;
-import javagames.util.RelativeMouseInput;
+import javagames.util.*;
 
 public class GameApp extends JFrame implements Runnable {
 
-	private static final long serialVersionUID = -5612855817410359454L;
-	
-	private static final int SCREEN_W = 480;
+	private static final int SCREEN_W = 640;
 	private static final int SCREEN_H = 480;
-	
+
+	private Canvas canvas;
 	private FrameRate frameRate;
 	private BufferStrategy bufferStrategy;
 	private volatile boolean running;
 	private Thread gameThread;
 	private RelativeMouseInput mouse;
 	private KeyboardInput keyboard;
-	private Canvas canvas;
-	
-	private float angle;
-	private float step;
-	private long sleep;
-	
-	public GameApp() {
+
+	private Vector2f[] triangle;
+	private Vector2f[] triangleWorld;
+
+    private Vector2f[] rectangle;
+    private Vector2f[] rectangleWorld;
+
+	private GameApp() {
 	}
 	
-	protected void createAndShowGUI() {
+	private void createAndShowGUI() {
 		canvas = new Canvas();
 		canvas.setSize(SCREEN_W, SCREEN_H);
 		canvas.setBackground(Color.WHITE);
@@ -49,11 +47,9 @@ public class GameApp extends JFrame implements Runnable {
 		setIgnoreRepaint(true);
 		pack();
 		
-		// Add key listeners
 		keyboard = new KeyboardInput();
 		canvas.addKeyListener(keyboard);
 		
-		// Add mouse listeners
 		mouse = new RelativeMouseInput(canvas);
 		canvas.addMouseListener(mouse);
 		canvas.addMouseMotionListener(mouse);
@@ -82,12 +78,32 @@ public class GameApp extends JFrame implements Runnable {
 			lastTime = currentTime;
 		}
 	}
-	
+
+	private void initialize() {
+		frameRate = new FrameRate();
+		frameRate.initialize();
+
+		triangle = new Vector2f[] {
+				new Vector2f(0.0f, 0.5f),
+				new Vector2f(-0.5f, -0.5f),
+				new Vector2f(0.5f, -0.5f)
+		};
+		triangleWorld = new Vector2f[triangle.length];
+
+		rectangle = new Vector2f[] {
+				new Vector2f(-1.0f, 1.0f),
+				new Vector2f(1.0f, 1.0f),
+				new Vector2f(1.0f, -1.0f),
+				new Vector2f(-1.0f, -1.0f)
+		};
+		rectangleWorld = new Vector2f[rectangle.length];
+	}
+
 	private void gameLoop(double timeDelta) {
 		processInput(timeDelta);
 		updateObjects(timeDelta);
 		renderFrame();
-		sleep(sleep);
+		sleep(10L);
 	}
 	
 	private void renderFrame() {
@@ -116,40 +132,12 @@ public class GameApp extends JFrame implements Runnable {
 		}
 	}
 	
-	private void initialize() {
-		frameRate = new FrameRate();
-		frameRate.initialize();
-		
-		angle = 0.0f;
-		step = (float)Math.PI / 2.0f;
-	}
-	
 	private void processInput(double timeDelta) {
 		keyboard.poll();
 		mouse.poll();
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_UP)) {
-			sleep += 10;
-		}
-		
-		if (keyboard.keyDownOnce(KeyEvent.VK_DOWN)) {
-			sleep -= 10;
-		}
-		
-		if (sleep > 1000) {
-			sleep = 1000;
-		}
-		
-		if (sleep < 0) {
-			sleep = 0;
-		}
 	}
 	
 	private void updateObjects(double timeDelta) {
-		angle += step * timeDelta;
-		if (angle > 2 * Math.PI) {
-			angle -= 2 * Math.PI;
-		}
 	}
 
 	private void render(Graphics g) {
@@ -158,31 +146,39 @@ public class GameApp extends JFrame implements Runnable {
 		g.setFont(new Font("Courier New", Font.PLAIN, 12));
 		g.setColor(Color.BLACK);
 		g.drawString(frameRate.getFrameRate(), 20, 20);
-		g.drawString("Up arrow increases sleep time", 20, 35);
-		g.drawString("Down arrow decreases sleep time", 20, 50);
-		g.drawString("Sleep time (ms): " + sleep, 20, 65);
-		
-		int x = canvas.getWidth() / 4;
-		int y = canvas.getHeight() / 4;
-		int w = canvas.getWidth() / 2;
-		int h = canvas.getHeight() / 2;
-		g.drawOval(x, y, w, h);
-		
-		float radiusWidth = w / 2;
-		float radiusHeight = h / 2;
-		int rx = (int)(radiusWidth * Math.cos(angle));
-		int ry = (int)(radiusHeight * Math.sin(angle));
-		
-		int cx = (int)(rx + w);
-		int cy = (int)(ry + h);
-		
-		// Draw clock hand
-		g.drawLine(w, h, cx, cy);
-		// and the dot at the and of the hand
-		g.drawRect(cx - 2, cy - 2, 4, 4);
+
+		float worldWidth = 2.0f;
+		float worldHeight = 2.0f;
+		float screenWidth = canvas.getWidth() - 1;
+		float screenHeight = canvas.getHeight() - 1;
+		float scaleHorizontal = screenWidth / worldWidth;
+		float scaleVertical = screenHeight / worldHeight;
+
+		Matrix3x3f viewPort = Matrix3x3f.scale(scaleHorizontal, -scaleVertical);
+		viewPort = viewPort.mul(Matrix3x3f.translate(screenWidth / 2.0f, screenHeight / 2.0f));
+
+		for (int i = 0; i < triangle.length; i++) {
+			triangleWorld[i] = viewPort.mul(triangle[i]);
+		}
+		drawPolygon(g, triangleWorld);
+
+		for (int i = 0; i < rectangle.length; i++) {
+			rectangleWorld[i] = viewPort.mul(rectangle[i]);
+		}
+		drawPolygon(g, rectangleWorld);
+	}
+
+	private void drawPolygon(Graphics g, Vector2f[] polygon) {
+		Vector2f P;
+		Vector2f S = polygon[polygon.length - 1];
+        for (Vector2f aPolygon : polygon) {
+            P = aPolygon;
+            g.drawLine((int) S.x, (int) S.y, (int) P.x, (int) P.y);
+            S = P;
+        }
 	}
 	
-	protected void onWindowClosing() {
+	private void onWindowClosing() {
 		try {
 			running = false;
 			gameThread.join();
@@ -200,10 +196,6 @@ public class GameApp extends JFrame implements Runnable {
 				app.onWindowClosing();
 			}
 		});
-		SwingUtilities.invokeLater(new Runnable() {
-			public void run() {
-				app.createAndShowGUI();
-			}
-		});
+		SwingUtilities.invokeLater(() -> app.createAndShowGUI());
 	}
 }
