@@ -12,9 +12,8 @@ import javagames.util.*;
 public class GameApp extends JFrame implements Runnable {
 
 	private static final int SCREEN_W = 640;
-	private static final int SCREEN_H = 480;
+	private static final int SCREEN_H = 640;
 
-	private Canvas canvas;
 	private FrameRate frameRate;
 	private BufferStrategy bufferStrategy;
 	private volatile boolean running;
@@ -22,25 +21,30 @@ public class GameApp extends JFrame implements Runnable {
 	private RelativeMouseInput mouse;
 	private KeyboardInput keyboard;
 
-	private Vector2f[] triangle;
-	private Vector2f[] triangleWorld;
+    private Canvas canvas;
 
-    private float worldWidth;
-    private float worldHeight;
+	private Vector2f[] cannon;
+	private Vector2f[] cannonCopy;
+	private float cannonRotation, cannonDelta;
+
+	private Vector2f bullet;
+	private Vector2f bulletCopy;
+	private Vector2f velocity;
 
 	private GameApp() {
 	}
 	
 	private void createAndShowGUI() {
 		canvas = new Canvas();
+		canvas.setSize(SCREEN_W, SCREEN_H);
 		canvas.setBackground(Color.WHITE);
 		canvas.setIgnoreRepaint(true);
-		getContentPane().setBackground(Color.LIGHT_GRAY);
-		setLayout(null);
-        setTitle("Game Application");
-		setSize(SCREEN_W, SCREEN_H);
 		getContentPane().add(canvas);
-		
+
+        setTitle("Game Application");
+        setIgnoreRepaint(true);
+        pack();
+
 		keyboard = new KeyboardInput();
 		canvas.addKeyListener(keyboard);
 		
@@ -49,12 +53,6 @@ public class GameApp extends JFrame implements Runnable {
 		canvas.addMouseMotionListener(mouse);
 		canvas.addMouseWheelListener(mouse);
 
-		getContentPane().addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                onComponentResized(e);
-            }
-        });
 		setVisible(true);
 		canvas.createBufferStrategy(2);
 		bufferStrategy = canvas.getBufferStrategy();
@@ -63,26 +61,6 @@ public class GameApp extends JFrame implements Runnable {
 		gameThread = new Thread(this);
 		gameThread.start();
 	}
-
-	private void onComponentResized(ComponentEvent e) {
-	    Dimension size = getContentPane().getSize();
-	    int viewWidth = size.width * 3 / 4;
-	    int viewHeight = size.height * 3 / 4;
-	    int viewXPosition = (size.width - viewWidth) / 2;
-	    int viewYPosition = (size.height - viewHeight) / 2;
-
-	    int newWidth = viewWidth;
-	    int newHeight = (int)(viewWidth * worldHeight / worldWidth);
-	    if (newHeight > viewHeight) {
-	        newWidth = (int)(viewHeight * worldWidth / worldHeight);
-	        newHeight = viewHeight;
-        }
-
-        viewXPosition += (viewWidth - newWidth) / 2;
-	    viewYPosition += (viewHeight - newHeight) / 2;
-	    canvas.setLocation(viewXPosition, viewYPosition);
-	    canvas.setSize(newWidth, newHeight);
-    }
 
 	@Override
 	public void run() {
@@ -103,22 +81,28 @@ public class GameApp extends JFrame implements Runnable {
 		frameRate = new FrameRate();
 		frameRate.initialize();
 
-		triangle = new Vector2f[] {
-				new Vector2f(0.0f, 2.25f),
-				new Vector2f(-4.0f, -2.25f),
-				new Vector2f(4.0f, -2.25f)
-		};
-		triangleWorld = new Vector2f[triangle.length];
+		velocity = new Vector2f();
+		cannonRotation = 0.0f;
+		cannonDelta = (float)Math.toRadians(90.0);
+		cannon = new Vector2f[] {
+		        new Vector2f(-0.5f, 0.125f),
+                new Vector2f(0.5f, 0.125f),
+                new Vector2f(0.5f, -0.125f),
+                new Vector2f(-0.5f, -0.125f)
+        };
+		cannonCopy = new Vector2f[cannon.length];
 
-		worldWidth = 16.0f;
-		worldHeight = 9.0f;
+		Matrix3x3f scale = Matrix3x3f.scale(0.75f, 0.75f);
+		for (int i = 0; i < cannon.length; i++) {
+		    cannon[i] = scale.mul(cannon[i]);
+        }
 	}
 
 	private void gameLoop(double timeDelta) {
 		processInput(timeDelta);
 		updateObjects(timeDelta);
 		renderFrame();
-		sleep();
+		sleep(10L);
 	}
 	
 	private void renderFrame() {
@@ -139,9 +123,9 @@ public class GameApp extends JFrame implements Runnable {
 		} while (bufferStrategy.contentsLost());
 	}
 	
-	private void sleep() {
+	private void sleep(long sleep) {
 		try {
-			Thread.sleep(10L);
+			Thread.sleep(sleep);
 		} catch (InterruptedException e) {
 			// Do nothing.
 		}
@@ -150,9 +134,48 @@ public class GameApp extends JFrame implements Runnable {
 	private void processInput(double timeDelta) {
 		keyboard.poll();
 		mouse.poll();
+
+		if (keyboard.keyDown(KeyEvent.VK_A)) {
+		    cannonRotation += cannonDelta * timeDelta;
+        }
+
+        if (keyboard.keyDown(KeyEvent.VK_D)) {
+		    cannonRotation -= cannonDelta * timeDelta;
+        }
+
+        if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
+		    // New velocity
+		    Matrix3x3f matrix = Matrix3x3f.translate(7.0f, 0.0f);
+		    matrix = matrix.mul(Matrix3x3f.rotate(cannonRotation));
+		    velocity = matrix.mul(new Vector2f());
+
+		    // Place bullet at cannon end
+            matrix = Matrix3x3f.translate(0.375f, 0.0f);
+            matrix = matrix.mul(Matrix3x3f.rotate(cannonRotation));
+            matrix = matrix.mul(Matrix3x3f.translate(-2.0f, -2.0f));
+            bullet = matrix.mul(new Vector2f());
+        }
 	}
 	
 	private void updateObjects(double timeDelta) {
+	    Matrix3x3f matrix = Matrix3x3f.identity();
+	    matrix = matrix.mul(Matrix3x3f.rotate(cannonRotation));
+	    matrix = matrix.mul(Matrix3x3f.translate(-2.0f, -2.0f));
+
+	    for (int i = 0; i < cannon.length; i++) {
+	        cannonCopy[i] = matrix.mul(cannon[i]);
+        }
+
+        if (bullet != null) {
+	        velocity.y += -9.8f * timeDelta;
+	        bullet.x += velocity.x * timeDelta;
+	        bullet.y += velocity.y * timeDelta;
+	        bulletCopy = new Vector2f(bullet);
+
+	        if (bullet.y < -2.5f) {
+	            bullet = null;
+            }
+        }
 	}
 
 	private void render(Graphics g) {
@@ -161,20 +184,35 @@ public class GameApp extends JFrame implements Runnable {
 		g.setFont(new Font("Courier New", Font.PLAIN, 12));
 		g.setColor(Color.BLACK);
 		g.drawString(frameRate.getFrameRate(), 20, 20);
+		g.drawString("(A) to raise, (D) to lower", 20, 35);
+		g.drawString("Press space to fire cannon", 20, 50);
 
-		float scaleHorizontal = (canvas.getWidth() - 1) / worldWidth;
-		float scaleVertical = (canvas.getHeight() - 1) / worldHeight;
-		float translateX = (canvas.getWidth() - 1) / 2.0f;
-		float translateY = (canvas.getHeight() - 1) / 2.0f;
+		String vel = String.format("Velocity: (%.2f,%.2f)", velocity.x, velocity.y);
+		g.drawString(vel, 20, 65);
 
-		Matrix3x3f viewPort = Matrix3x3f.identity();
-		viewPort = viewPort.mul(Matrix3x3f.scale(scaleHorizontal, -scaleVertical));
+		float worldWidth = 5.0f;
+		float worldHeight = 5.0f;
+		float screenWidth = canvas.getWidth() - 1;
+		float screenHeight = canvas.getHeight() - 1;
+
+		float scaleHorizontal = screenWidth / worldWidth;
+		float scaleVertical = -screenHeight / worldHeight;
+		Matrix3x3f viewPort = Matrix3x3f.scale(scaleHorizontal, scaleVertical);
+
+		float translateX = screenWidth / 2.0f;
+		float translateY = screenHeight / 2.0f;
+
 		viewPort = viewPort.mul(Matrix3x3f.translate(translateX, translateY));
 
-		for (int i = 0; i < triangle.length; i++) {
-			triangleWorld[i] = viewPort.mul(triangle[i]);
+		for (int i = 0; i < cannon.length; i++) {
+			cannonCopy[i] = viewPort.mul(cannonCopy[i]);
 		}
-		drawPolygon(g, triangleWorld);
+		drawPolygon(g, cannonCopy);
+
+		if (bullet != null) {
+		    bulletCopy = viewPort.mul(bulletCopy);
+		    g.drawRect((int)bulletCopy.x-2, (int)bulletCopy.y-2, 4, 4);
+        }
 	}
 
 	private void drawPolygon(Graphics g, Vector2f[] polygon) {
