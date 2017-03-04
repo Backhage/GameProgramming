@@ -9,263 +9,86 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 
 public class GameApp extends SimpleFramework {
-    // mouse variables
-    private Vector2f mousePos;
-    private Vector2f mouseDelta;
-    private boolean clicked;
-    private boolean dragging;
 
-    // Axis-Aligned Bounding Box (AABB) variables
-    private Vector2f min0, max0;
-    private Vector2f min0Cpy, max0Cpy;
-    private Vector2f rect0Pos;
-    private boolean rect0Collision;
-    private boolean rect0Moving;
-
-    private Vector2f min1, max1;
-    private Vector2f min1Cpy, max1Cpy;
-    private Vector2f rect1Pos;
-    private boolean rect1Collision;
-    private boolean rect1Moving;
-
-    // Circle variables
-    private Vector2f c0, c0Pos;
-    private float r0;
-    private boolean circle0Collision;
-    private boolean circle0Moving;
-
-    private Vector2f c1, c1Pos;
-    private float r1;
-    private boolean circle1Collision;
-    private boolean circle1Moving;
+    private Vector2f P, Q;
+    private Vector2f start, end;
+    boolean overlap = false;
 
     public GameApp() {
-        appBackground = Color.WHITE;
-        appFPSColor = Color.BLACK;
         appTitle = "Overlap example";
         appWidth = 640;
         appHeight = 640;
+        appSleep = 10L;
+        appBackground = Color.WHITE;
+        appFPSColor = Color.BLACK;
     }
 
     @Override
     protected void initialize() {
         super.initialize();
 
-        mousePos = new Vector2f();
-
-        min0 = new Vector2f(-0.25f, -0.25f);
-        max0 = new Vector2f(0.25f, 0.25f);
-
-        min1 = new Vector2f(-0.3f, -0.3f);
-        max1 = new Vector2f(0.3f, 0.3f);
-
-        r0 = 0.25f;
-        r1 = 0.125f;
-
-        reset();
-    }
-
-    private void reset() {
-        rect0Pos = new Vector2f();
-        rect1Pos = new Vector2f(0.25f, 0.5f);
-        c0Pos = new Vector2f(-0.6f, -0.6f);
-        c1Pos = new Vector2f(0.6f, 0.6f);
+        P = new Vector2f(-0.6f, 0.4f);
+        Q = new Vector2f(0.6f, -0.4f);
+        start = new Vector2f(0.8f, 0.8f);
+        end = new Vector2f();
     }
 
     @Override
     protected void processInput(float delta) {
         super.processInput(delta);
-        // reset objects on spacebar
-        if (keyboard.keyDownOnce(KeyEvent.VK_SPACE)) {
-            reset();
+
+        end = getWorldMousePosition();
+        if (mouse.buttonDownOnce(MouseEvent.BUTTON1)) {
+            start = new Vector2f(end);
         }
-
-        // convert screen coordinates to world coordinates
-        // for intersection testing
-        Vector2f pos = getWorldMousePosition();
-        mouseDelta = pos.sub(mousePos);
-        mousePos = pos;
-
-        clicked = mouse.buttonDownOnce(MouseEvent.BUTTON1);
-        dragging = mouse.buttonDown(MouseEvent.BUTTON1);
     }
 
     @Override
     protected void updateObjects(float delta) {
         super.updateObjects(delta);
-        // calculate AABB minimum and maximun values
-        Matrix3x3f mat = Matrix3x3f.translate(rect0Pos.x, rect0Pos.y);
-        min0Cpy = mat.mul(min0);
-        max0Cpy = mat.mul(max0);
 
-        mat = Matrix3x3f.translate(rect1Pos.x, rect1Pos.y);
-        min1Cpy = mat.mul(min1);
-        max1Cpy = mat.mul(max1);
-
-        // position the circles
-        mat = Matrix3x3f.translate(c0Pos.x, c0Pos.y);
-        c0 = mat.mul(new Vector2f());
-
-        mat = Matrix3x3f.translate(c1Pos.x, c1Pos.y);
-        c1 = mat.mul(new Vector2f());
-
-        // test for click and drag of objects
-        if (clicked && pointInAABB(mousePos, min0Cpy, max0Cpy)) {
-            rect0Moving = true;
-        }
-
-        if (clicked && pointInAABB(mousePos, min1Cpy, max1Cpy)) {
-            rect1Moving = true;
-        }
-
-        if (clicked && pointInCircle(mousePos, c0Pos, r0)) {
-            circle0Moving = true;
-        }
-
-        if (clicked && pointInCircle(mousePos, c1Pos, r1)) {
-            circle1Moving = true;
-        }
-
-        rect0Moving = rect0Moving && dragging;
-        if (rect0Moving) {
-            rect0Pos = rect0Pos.add(mouseDelta);
-        }
-
-        rect1Moving = rect1Moving && dragging;
-        if (rect1Moving) {
-            rect1Pos = rect1Pos.add(mouseDelta);
-        }
-
-        circle0Moving = circle0Moving && dragging;
-        if (circle0Moving) {
-            c0Pos = c0Pos.add(mouseDelta);
-        }
-
-        circle1Moving = circle1Moving && dragging;
-        if (circle1Moving) {
-            c1Pos = c1Pos.add(mouseDelta);
-        }
-
-        rect0Collision = false;
-        rect1Collision = false;
-        circle0Collision = false;
-        circle1Collision = false;
-
-        // perform intersection testing
-        if (intersectAABB(min0Cpy, max0Cpy, min1Cpy, max1Cpy)) {
-            rect0Collision = true;
-            rect1Collision = true;
-        }
-
-        if (intersectCircle(c0, r0, c1, r1)) {
-            circle0Collision = true;
-            circle1Collision = true;
-        }
-
-        if (intersectCircleAABB(c0, r0, min0Cpy, max0Cpy)) {
-            circle0Collision = true;
-            rect0Collision = true;
-        }
-
-        if (intersectCircleAABB(c0, r0, min1Cpy, max1Cpy)) {
-            circle0Collision = true;
-            rect1Collision = true;
-        }
-
-        if (intersectCircleAABB(c1, r1, min0Cpy, max0Cpy)) {
-            circle1Collision = true;
-            rect0Collision = true;
-        }
-
-        if (intersectCircleAABB(c1, r1, min1Cpy, max1Cpy)) {
-            circle1Collision = true;
-            rect1Collision = true;
-        }
+        overlap = lineLineOverlap(P, Q, start, end);
     }
 
-    private boolean pointInAABB(Vector2f p, Vector2f min, Vector2f max) {
-        return p.x > min.x && p.x < max.x &&
-                p.y > min.y && p.y < max.y;
-    }
+    private boolean lineLineOverlap(Vector2f A, Vector2f B, Vector2f P, Vector2f Q) {
+        Vector2f C0 = A.add(B).div(2.0f);
+        Vector2f C1 = P.add(Q).div(2.0f);
+        Vector2f C = C0.sub(C1);
 
-    private boolean pointInCircle(Vector2f p, Vector2f c, float r) {
-        Vector2f dist = p.sub(c);
-        return dist.lenSqr() < r*r;
-    }
+        Vector2f r0 = A.sub(C0);
+        Vector2f r1 = P.sub(C1);
 
-    private boolean intersectAABB(Vector2f minA, Vector2f maxA, Vector2f minB, Vector2f maxB) {
-        if (minA.x > maxB.x || minB.x > maxA.x) return false;
-        if (minA.y > maxB.y || minB.y > maxA.y) return false;
+        Vector2f N0 = r0.perp().norm();
+        Vector2f N1 = r1.perp().norm();
+
+        float abs1 = Math.abs(N0.dot(C));
+        float abs2 = Math.abs(N0.dot(r1));
+        if (abs1 > abs2) return false;
+
+        abs1 = Math.abs(N1.dot(C));
+        abs2 = Math.abs(N1.dot(r0));
+        if (abs1 > abs2) return false;
+
         return true;
-    }
-
-    private boolean intersectCircle(Vector2f c0, float r0, Vector2f c1, float r1) {
-        Vector2f c = c0.sub(c1);
-        float r = r0 + r1;
-        return c.lenSqr() < r*r;
-    }
-
-    private boolean intersectCircleAABB(Vector2f c, float r, Vector2f min, Vector2f max) {
-        float d = 0.0f;
-        if (c.x < min.x) d += (c.x - min.x) * (c.x - min.x);
-        if (c.x > max.x) d += (c.x - max.x) * (c.x - max.x);
-        if (c.y < min.y) d += (c.y - min.y) * (c.y - min.y);
-        if (c.y > max.y) d += (c.y - max.y) * (c.y - max.y);
-        return d < r*r;
     }
 
     @Override
     protected void render(Graphics g) {
         super.render(g);
-        // render instructions
-        g.drawString("Dragging: " + dragging, 20, 35);
-        g.drawString("Click and hold to drag shapes", 20, 50);
-        g.drawString("Press [SPACE] to reset", 20, 65);
-        // render objects
-        g.setColor(rect0Collision ? Color.BLACK : Color.BLUE);
-        drawAABB(g, min0Cpy, max0Cpy);
 
-        g.setColor(rect1Collision ? Color.BLACK : Color.BLUE);
-        drawAABB(g, min1Cpy, max1Cpy);
+        g.drawString("Overlap: " + overlap, 20, 35);
+        g.drawString("Left click for new line", 20, 50);
 
-        g.setColor(circle0Collision ? Color.BLACK : Color.BLUE);
-        drawOval(g, c0, r0);
+        g.setColor(overlap ? Color.BLUE : Color.BLACK);
 
-        g.setColor(circle1Collision ? Color.BLACK : Color.BLUE);
-        drawOval(g, c1, r1);
-    }
-
-    private void drawAABB(Graphics g, Vector2f min, Vector2f max) {
         Matrix3x3f view = getViewportTransform();
+        Vector2f v0 = view.mul(P);
+        Vector2f v1 = view.mul(Q);
+        g.drawLine((int)v0.x, (int)v0.y, (int)v1.x, (int)v1.y);
 
-        Vector2f topLeft = new Vector2f(min.x, max.y);
-        topLeft = view.mul(topLeft);
-
-        Vector2f bottomRight = new Vector2f(max.x, min.y);
-        bottomRight = view.mul(bottomRight);
-
-        int rectX = (int)topLeft.x;
-        int rectY = (int)topLeft.y;
-        int rectWidth = (int)(bottomRight.x - topLeft.x);
-        int rectHeight = (int)(bottomRight.y - topLeft.y);
-        g.drawRect(rectX, rectY, rectWidth, rectHeight);
-    }
-
-    private void drawOval(Graphics g, Vector2f center, float radius) {
-        Matrix3x3f view = getViewportTransform();
-
-        Vector2f topLeft = new Vector2f(center.x - radius, center.y + radius);
-        topLeft = view.mul(topLeft);
-
-        Vector2f bottomRight = new Vector2f(center.x + radius, center.y - radius);
-        bottomRight = view.mul(bottomRight);
-
-        int circleX = (int)topLeft.x;
-        int circleY = (int)topLeft.y;
-        int circleWidth = (int)(bottomRight.x - topLeft.x);
-        int circleHeight = (int)(bottomRight.y - topLeft.y);
-
-        g.drawOval(circleX, circleY, circleWidth, circleHeight);
+        v0 = view.mul(start);
+        v1 = view.mul(end);
+        g.drawLine((int)v0.x, (int)v0.y, (int)v1.x, (int)v1.y);
     }
 
     public static void main(String[] args) {
