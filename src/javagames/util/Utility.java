@@ -1,5 +1,7 @@
 package javagames.util;
 
+import java.awt.*;
+
 public class Utility {
     public static Matrix3x3f createViewPort(float worldWidth, float worldHeight, float screenWidth, float screenHeight) {
         float scaleX = (screenWidth - 1) / worldWidth;
@@ -21,6 +23,16 @@ public class Utility {
         Matrix3x3f viewport = Matrix3x3f.translate(-translateX, -translateY);
         viewport = viewport.mul(Matrix3x3f.scale(scaleX, -scaleY));
         return viewport;
+    }
+
+    public static void drawPolygon(Graphics g, Vector2f[] polygon) {
+        Vector2f P;
+        Vector2f S = polygon[polygon.length - 1];
+        for (int i = 0; i < polygon.length; i++) {
+            P = polygon[i];
+            g.drawLine((int) S.x, (int) S.y, (int) P.x, (int) P.y);
+            S = P;
+        }
     }
 }
 
