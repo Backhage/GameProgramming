@@ -1,6 +1,8 @@
 package javagames.util;
 
 import java.awt.*;
+import java.util.*;
+import java.util.List;
 
 public class Utility {
     public static Matrix3x3f createViewPort(float worldWidth, float worldHeight, float screenWidth, float screenHeight) {
@@ -33,6 +35,22 @@ public class Utility {
             g.drawLine((int) S.x, (int) S.y, (int) P.x, (int) P.y);
             S = P;
         }
+    }
+
+    public static void fillPolygon(Graphics2D g, Vector2f[] polygon) {
+        Polygon p = new Polygon();
+        for (Vector2f v : polygon) {
+            p.addPoint((int)v.x, (int)v.y);
+        }
+        g.fillPolygon(p);
+    }
+
+    public static void fillPolygon(Graphics2D g, List<Vector2f> polygon) {
+        Polygon p = new Polygon();
+        for (Vector2f v : polygon) {
+            p.addPoint((int)v.x, (int)v.y);
+        }
+        g.fillPolygon(p);
     }
 }
 
