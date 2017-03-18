@@ -7,7 +7,6 @@ import javagames.util.Vector2f;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.security.Key;
 import java.util.ArrayList;
 
 public class PrototypeEditor extends SimpleFramework {
