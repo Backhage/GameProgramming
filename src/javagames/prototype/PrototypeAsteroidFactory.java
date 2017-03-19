@@ -41,7 +41,7 @@ public class PrototypeAsteroidFactory {
                 new Vector2f(0.51486695f, 0.48982787f),
                 new Vector2f(0.25508606f, 0.57433486f),
                 new Vector2f(-0.098591566f, 0.43035996f),
-                new Vector2f(0.08920181f, 0.6025039f),
+                new Vector2f(0.08920181f, 0.6025039f)
             }, { // Large2
                 new Vector2f(0.010954618f, 0.75586855f),
                 new Vector2f(-0.24256653f, 0.65884197f),
@@ -58,11 +58,72 @@ public class PrototypeAsteroidFactory {
     };
 
     private static final Vector2f[][] MEDIUM = {
-
+            { // Medium0
+                new Vector2f(0.13302028f, 0.26134586f),
+                new Vector2f(-0.07042253f, 0.31455398f),
+                new Vector2f(-0.23630673f, 0.2832551f),
+                new Vector2f(-0.31455398f, 0.07981223f),
+                new Vector2f(-0.3364632f, -0.14241004f),
+                new Vector2f(-0.15805948f, -0.26134586f),
+                new Vector2f(0.07981217f, -0.30516434f),
+                new Vector2f(0.29264474f, -0.14553988f),
+                new Vector2f(0.30829418f, -0.042253494f),
+                new Vector2f(0.30516434f, 0.1236307f)
+            },{ // Medium1
+                new Vector2f(0.20813775f, 0.19874805f),
+                new Vector2f(0.12989044f, 0.2707355f),
+                new Vector2f(0.06416273f, 0.23630673f),
+                new Vector2f(-0.08607197f, 0.29264474f),
+                new Vector2f(-0.19561815f, 0.21126759f),
+                new Vector2f(-0.15805948f, 0.1205008f),
+                new Vector2f(-0.3364632f, -0.0046948195f),
+                new Vector2f(-0.15492958f, -0.22691703f),
+                new Vector2f(-0.09233177f, -0.4397496f),
+                new Vector2f(0.08607197f, -0.45539904f),
+                new Vector2f(0.17370892f, -0.29890454f),
+                new Vector2f(0.17370892f, -0.15179968f),
+                new Vector2f(0.3802817f, -0.07981217f),
+                new Vector2f(0.33959305f, 0.07355243f)
+            }, { // Medium2
+                new Vector2f(0.16744912f, 0.2769953f),
+                new Vector2f(0.31768382f, 0.13928014f),
+                new Vector2f(0.25195622f, -0.020344257f),
+                new Vector2f(0.2832551f, -0.22065723f),
+                new Vector2f(0.035993695f, -0.30203438f),
+                new Vector2f(-0.24256653f, -0.18309855f),
+                new Vector2f(-0.32081378f, 0.08607197f),
+                new Vector2f(-0.101721466f, 0.20500785f)
+            }
     };
 
     private static final Vector2f[][] SMALL = {
-
+            { // Small0
+                new Vector2f(0.104851365f, 0.17996871f),
+                new Vector2f(-0.06416279f, 0.17057902f),
+                new Vector2f(-0.22691709f, 0.035993755f),
+                new Vector2f(-0.16431928f, -0.114241004f),
+                new Vector2f(0.054773092f, -0.15492952f),
+                new Vector2f(0.117370844f, -0.014084458f)
+            },
+            { // Small1
+                new Vector2f(0.06416273f, 0.1236307f),
+                new Vector2f(0.0015649796f, 0.14241004f),
+                new Vector2f(-0.08920187f, 0.09233177f),
+                new Vector2f(-0.111111104f, -0.026604056f),
+                new Vector2f(-0.026604056f, -0.09233177f),
+                new Vector2f(0.06103289f, -0.101721406f),
+                new Vector2f(0.114241004f, -0.014084458f),
+                new Vector2f(0.1205008f, 0.06416279f)
+            },
+            { // Small2
+                new Vector2f(0.07981217f, 0.101721466f),
+                new Vector2f(0.029733896f, 0.12989044f),
+                new Vector2f(-0.045383394f, 0.111111104f),
+                new Vector2f(-0.15179968f, -0.057902932f),
+                new Vector2f(-0.032863855f, -0.1267606f),
+                new Vector2f(0.1205008f, -0.104851365f),
+                new Vector2f(0.15805948f, 0.048513293f)
+            }
     };
 
     private PolygonWrapper wrapper;
